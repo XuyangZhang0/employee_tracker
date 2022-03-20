@@ -18,14 +18,14 @@ db.connect(err => {
 })
 
 postConnectionMessage = () => {
-        console.log(`Connected to the employees_db database.`);
-        console.log("***********************************");
-        console.log("*                                 *");
-        console.log("*        EMPLOYEE MANAGER         *");
-        console.log("*                                 *");
-        console.log("***********************************");
-        promptUser();
-    }
+    console.log(`Connected to the employees_db database.`);
+    console.log("***********************************");
+    console.log("*                                 *");
+    console.log("*        EMPLOYEE MANAGER         *");
+    console.log("*                                 *");
+    console.log("***********************************");
+    promptUser();
+}
 
 //Inquirer loop question example
 const promptUser = () => {
@@ -122,7 +122,7 @@ const promptUser = () => {
 
 // View All Employees
 viewEmployees = () => {
-    let sqlStatement = `SELECT e.id,e.first_name,e.last_name,r.title,d.name department,r.salary, CONCAT (m.first_name, " ", m.last_name) manager
+    const sqlStatement = `SELECT e.id,e.first_name,e.last_name,r.title,d.name department,r.salary, CONCAT (m.first_name, " ", m.last_name) manager
     FROM employee e
     LEFT JOIN role r ON e.role_id=r.id
     LEFT JOIN department d ON r.department_id = d.id
@@ -134,12 +134,114 @@ viewEmployees = () => {
     });
 }
 
-
 viewDepartments = () => {
-    let sqlStatement = `SELECT * FROM department`;
+    const sqlStatement = `SELECT * FROM department`;
     db.query(sqlStatement, (err, results) => {
         if (err) throw err;
         console.table(results);
         promptUser();
     });
 }
+
+viewRoles = () => {
+    const sqlStatement = `SELECT * FROM role`;
+    db.query(sqlStatement, (err, results) => {
+        if (err) throw err;
+        console.table(results);
+        promptUser();
+    });
+}
+
+addDepartment = () => {
+    inquirer.prompt([
+        {
+            type: 'input',
+            name: 'addDepartment',
+            message: "What is the name of the department?",
+            validate: addDeptartment => {
+                if (addDeptartment) {
+                    return true;
+                } else {
+                    console.log('Please enter a department name');
+                    return false;
+                }
+            }
+        }
+    ])
+        .then(answer => {
+            const sqlStatement = `INSERT INTO department (name)
+                      VALUES (?)`;
+            db.query(sqlStatement, answer.addDepartment, (err, result) => {
+                if (err) throw err;
+                console.log('Added ' + answer.addDepartment + " to the database!");
+
+                viewDepartments();
+            });
+        });
+};
+
+addRole = () => {
+    inquirer.prompt([
+        {
+            type: 'input',
+            name: 'role',
+            message: "What is the name of the role?",
+            validate: addRole => {
+                if (addRole) {
+                    return true;
+                } else {
+                    console.log('Please enter a role name');
+                    return false;
+                }
+            }
+        },
+        {
+            type: 'input',
+            name: 'salary',
+            message: "What is the salary of this role?",
+            //Too much trouble, it takes numbers only with commas and then to pass on to DB, there needs to be a conversion
+            // validate: salaryInput => {
+            //     //How to check if a value is number https://stackabuse.com/javascript-check-if-variable-is-a-number/
+            //     if (Number.isFinite(salaryInput) ) {
+            //         return true;
+            //     } else {
+            //         console.log('Please enter a salary');
+            //         return false;
+            //     }
+            // }
+        },
+    ])
+        .then(answer => {
+            let queryParams = [answer.role, answer.salary];
+            // get all departments
+            const departmentStatement = `SELECT * FROM department`;
+            db.query(departmentStatement, (err, result) => {
+                if (err) throw err;
+                const department = result.map(({ id, name }) => ({ name: name, value: id, }));
+                inquirer.prompt([
+                    {
+                        type: 'list',
+                        name: 'department',
+                        message: "What department does the role belong to?",
+                        choices: department
+                    }
+                ])
+                    .then(departmentChoice => {
+                        const department = departmentChoice.department;
+                        queryParams.push(department);
+                        console.log(queryParams);
+
+                        const sqlStatement = `INSERT INTO role (title, salary, department_id)
+                        VALUES (?, ?, ?)`;
+                        db.query(sqlStatement, queryParams, (err, result) => {
+                            if (err) throw err;
+                            console.log('Added' + answer.role + " to roles!");
+
+                            viewRoles();
+
+                        })
+
+                    });
+            });
+        })
+};
