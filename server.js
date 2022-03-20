@@ -2,6 +2,7 @@ const inquirer = require('inquirer');
 // inquirer.registerPrompt("loop", require("inquirer-loop")(inquirer));
 const mysql = require('mysql2');
 const cTable = require('console.table');
+const { NONAME } = require('dns');
 
 const db = mysql.createConnection(
     {
@@ -156,10 +157,10 @@ addDepartment = () => {
     inquirer.prompt([
         {
             type: 'input',
-            name: 'addDepartment',
+            name: 'department',
             message: "What is the name of the department?",
-            validate: addDeptartment => {
-                if (addDeptartment) {
+            validate: deptartmentInput => {
+                if (deptartmentInput) {
                     return true;
                 } else {
                     console.log('Please enter a department name');
@@ -171,9 +172,9 @@ addDepartment = () => {
         .then(answer => {
             const sqlStatement = `INSERT INTO department (name)
                       VALUES (?)`;
-            db.query(sqlStatement, answer.addDepartment, (err, result) => {
+            db.query(sqlStatement, answer.department, (err, result) => {
                 if (err) throw err;
-                console.log('Added ' + answer.addDepartment + " to the database!");
+                console.log('Added ' + answer.department + " to the database!");
 
                 viewDepartments();
             });
@@ -186,8 +187,8 @@ addRole = () => {
             type: 'input',
             name: 'role',
             message: "What is the name of the role?",
-            validate: addRole => {
-                if (addRole) {
+            validate: roleInput => {
+                if (roleInput) {
                     return true;
                 } else {
                     console.log('Please enter a role name');
@@ -215,9 +216,9 @@ addRole = () => {
             let queryParams = [answer.role, answer.salary];
             // get all departments
             const departmentStatement = `SELECT * FROM department`;
-            db.query(departmentStatement, (err, result) => {
+            db.query(departmentStatement, (err, results) => {
                 if (err) throw err;
-                const department = result.map(({ id, name }) => ({ name: name, value: id, }));
+                const department = results.map(({ id, name }) => ({ name: name, value: id, }));
                 inquirer.prompt([
                     {
                         type: 'list',
@@ -236,12 +237,96 @@ addRole = () => {
                         db.query(sqlStatement, queryParams, (err, result) => {
                             if (err) throw err;
                             console.log('Added' + answer.role + " to roles!");
-
                             viewRoles();
-
                         })
-
                     });
             });
         })
+};
+
+addEmployee = () => {
+    inquirer.prompt([
+        {
+            type: 'input',
+            name: 'fistName',
+            message: "What is the employee's first name?",
+            validate: firstNameInput => {
+                if (firstNameInput) {
+                    return true;
+                } else {
+                    console.log('Please enter a first name');
+                    return false;
+                }
+            }
+        },
+        {
+            type: 'input',
+            name: 'lastName',
+            message: "What is the employee's last name?",
+            validate: lastNameInput => {
+                if (lastNameInput) {
+                    return true;
+                } else {
+                    console.log('Please enter a last name');
+                    return false;
+                }
+            }
+        }
+    ])
+        .then(answer => {
+            const queryParams = [answer.fistName, answer.lastName]
+
+            // get available roles
+            const roleStatement = `SELECT role.id, role.title FROM role`;
+
+            db.query(roleStatement, (err, results) => {
+                if (err) throw err;
+
+                const roles = results.map(({ id, title }) => ({ name: title, value: id }));
+
+                inquirer.prompt([
+                    {
+                        type: 'list',
+                        name: 'role',
+                        message: "What is the employee's role?",
+                        choices: roles
+                    }
+                ])
+                    .then(roleChoice => {
+                        const role = roleChoice.role;
+                        queryParams.push(role);
+
+                        const managerStatement = `SELECT * FROM employee`;
+
+                        db.query(managerStatement, (err, results) => {
+                            if (err) throw err;
+                            const managers = results.map(({ id, first_name, last_name }) => ({ name: first_name + " " + last_name, value: id }));
+                            managers.push({name: "None", value: null});
+
+                            inquirer.prompt([
+                                {
+                                    type: 'list',
+                                    name: 'manager',
+                                    message: "Who is the employee's manager?",
+                                    choices: managers
+                                }
+                            ])
+                                .then(managerChoice => {
+                                    const manager = managerChoice.manager;
+                                    queryParams.push(manager);
+
+                                    const sqlStatement = `INSERT INTO employee (first_name, last_name, role_id, manager_id)
+                      VALUES (?, ?, ?, ?)`;
+
+                                    db.query(sqlStatement, queryParams, (err, result) => {
+                                        if (err) throw err;
+                                        console.log(`${answer.fistName} ${answer.lastName} added to the database!`)
+
+                                        viewEmployees();
+                                    });
+                                });
+                        });
+                    });
+            });
+        });
 };
