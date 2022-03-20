@@ -43,8 +43,8 @@ const promptUser = () => {
                 'Add Role', //done
                 'View All Departments', //done
                 'Add Department', //done
-                'Update Employee Manager',
-                'View Employees by Manager',
+                'Update Employee Manager',//done
+                'View Employees by Manager',//done
                 "View Employees by Department",
                 'Delete Department',
                 'Delete Role',
@@ -418,3 +418,63 @@ updateManager = () => {
             })
     })
 };
+
+viewEmployeesByManager = () => {
+    const managerStatement = `SELECT * FROM employee WHERE id IN
+    (SELECT DISTINCT manager_id FROM employee)`;
+    db.query(managerStatement, (err, results) => {
+        if (err) throw err;
+        const managers = results.map(({ id, first_name, last_name }) => ({ name: first_name + " " + last_name, value: id }));
+        inquirer.prompt([
+            {
+                type: 'list',
+                name: 'manager',
+                message: "Select a manager to see his or her direct reports.",
+                choices: managers
+            }
+        ])
+            .then(managerChoice => {
+                const manager = managerChoice.manager;
+                const sqlStatement = `SELECT e.id,e.first_name,e.last_name,r.title,d.name department,r.salary, CONCAT (m.first_name, " ", m.last_name) manager
+                FROM employee e
+                LEFT JOIN role r ON e.role_id=r.id
+                LEFT JOIN department d ON r.department_id = d.id
+                LEFT JOIN employee m ON e.manager_id=m.id
+                WHERE e.manager_id=?`;
+                db.query(sqlStatement, manager, (err, results) => {
+                    if (err) throw err;
+                    console.table(results);
+                })
+            })
+    }
+    )
+}
+
+viewEmployeesByDepartment = () => {
+    const departmentStatement = `SELECT * FROM department`;
+    db.query(departmentStatement, (err, results) => {
+        if (err) throw err;
+        const department = results.map(({ id, name }) => ({ name: name, value: id, }));
+        inquirer.prompt([
+            {
+                type: 'list',
+                name: 'department',
+                message: "Select a department to see its employees.",
+                choices: department
+            }
+        ])
+            .then(departmentChoice => {
+                const department = departmentChoice.department;
+                const sqlStatement = `SELECT e.id,e.first_name,e.last_name,r.title,d.name department,r.salary, CONCAT (m.first_name, " ", m.last_name) manager
+                FROM employee e
+                LEFT JOIN role r ON e.role_id=r.id
+                LEFT JOIN department d ON r.department_id = d.id
+                LEFT JOIN employee m ON e.manager_id=m.id
+                WHERE r.department_id=?`;
+                db.query(sqlStatement, department, (err, results) => {
+                    if (err) throw err;
+                    console.table(results);
+                })
+            })
+    })
+}
