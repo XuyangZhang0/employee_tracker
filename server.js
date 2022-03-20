@@ -38,7 +38,7 @@ const promptUser = () => {
             choices: [
                 'View All Employees', //done
                 'Add Employee', //done
-                'Update Employee Role',
+                'Update Employee Role',//done
                 'View All Roles', //done
                 'Add Role', //done
                 'View All Departments', //done
@@ -364,7 +364,7 @@ updateEmployee = () => {
                     ])
                         .then(roleChoice => {
                             const role = roleChoice.role;
-                            queryParams.push(role);
+                            queryParams.unshift(role);
                             const sqlStatement = `UPDATE employee SET role_id=? WHERE id=?`;
                             db.query(sqlStatement, queryParams, (err, results) => {
                                 if (err) throw err;
@@ -376,3 +376,45 @@ updateEmployee = () => {
             })
     })
 }
+
+updateManager = () => {
+    //get all employees
+    const employeeStatement = `SELECT * FROM employee`;
+    db.query(employeeStatement, (err, results) => {
+        if (err) throw err;
+        const employees = results.map(({ id, first_name, last_name }) => ({ name: first_name + " " + last_name, value: id }));
+        inquirer.prompt([
+            {
+                type: 'list',
+                name: 'employee',
+                message: "Which employee's manager do you want to update?",
+                choices: employees
+            }
+        ])
+            .then(employeeChoice => {
+                const employee = employeeChoice.employee;
+                const queryParams = [];
+                queryParams.push(employee);
+                //No need to get employees one more time
+
+                inquirer.prompt([
+                    {
+                        type: 'list',
+                        name: 'manager',
+                        message: "Who is going to be this employee's new manager?",
+                        choices: employees
+                    }
+                ])
+                    .then(managerChoice => {
+                        const manager = managerChoice.manager;
+                        queryParams.unshift(manager);
+                        const sqlStatement = `UPDATE employee SET manager_id=? WHERE id=?`;
+                        db.query(sqlStatement, queryParams, (err, results) => {
+                            if (err) throw err;
+                            console.log("Updated Employee's manager");
+                            viewEmployees();
+                        })
+                    })
+            })
+    })
+};
